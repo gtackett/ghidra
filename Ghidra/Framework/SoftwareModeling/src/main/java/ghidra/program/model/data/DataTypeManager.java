@@ -18,6 +18,7 @@ package ghidra.program.model.data;
 import java.util.*;
 
 import db.Transaction;
+import ghidra.framework.model.DomainObject;
 import ghidra.program.database.SpecExtension;
 import ghidra.program.database.map.AddressMap;
 import ghidra.program.model.lang.*;
@@ -308,7 +309,14 @@ public interface DataTypeManager {
 	public void removeInvalidatedListener(InvalidatedListener listener);
 
 	/**
-	 * Remove the given datatype from this manager
+	 * Remove the given datatype from this manager.
+	 * <br>
+	 * NOTE: Any use of the specified datatype within a {@link FunctionDefinition} will be 
+	 * converted to the {@link DataType#DEFAULT default 'undefined' datatype}.  Any use within
+	 * a {@link Structure} or {@link Union} will be converted to the {@link BadDataType} as
+	 * a placeholder to retain the component's field name and length (the comment will be prefixed
+	 * with a message indicating the remval of the old datatype.
+	 * 
 	 * @param dataType the dataType to be removed
 	 * @param monitor the task monitor
 	 * @return true if the data type existed and was removed
@@ -380,11 +388,27 @@ public interface DataTypeManager {
 	public int startTransaction(String description);
 
 	/**
-	 * Ends the current transaction
+	 * Ends the current transaction.
+	 * <P>
+	 * NOTE: If multiple transactions are outstanding the full transaction will not be ended
+	 * until all transactions have been ended.  If any of the transactions indicate a 
+	 * false for {@code commit} the transaction will ultimately be rolled-back when the final
+	 * transaction is ended.
+	 * <P>
+	 * NOTE: Use of rollback ({@code commit=false} should be avoided unless absolutely
+	 * neccessary since it will incur overhead to revert changes and may rollback multiple
+	 * concurrent transactions if they exist.
+	 * <P>
+	 * NOTE: If this manager is part of a larger {@link DomainObject} its transactions may become
+	 * entangled with other transactions at a higher level.  In such cases, use of  the 
+	 * {@link DomainObject} transaction interface is preferred.  The return value from this
+	 * method cannot be relied on in such cases. 
 	 * @param transactionID id of the transaction to end
-	 * @param commit true if changes are committed, false if changes in transaction are revoked
+	 * @param commit true if changes are committed, false if changes in transaction should be
+	 * rolled back.
+	 * @return true if this invocation was the final transaction and all changes were comitted.
 	 */
-	public void endTransaction(int transactionID, boolean commit);
+	public boolean endTransaction(int transactionID, boolean commit);
 
 	/**
 	 * Performs the given callback inside of a transaction.  Use this method in place of the more

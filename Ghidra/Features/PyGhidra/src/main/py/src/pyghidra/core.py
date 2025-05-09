@@ -81,20 +81,25 @@ def _setup_project(
         project_name: str = None,
         language: str = None,
         compiler: str = None,
-        loader: Union[str, JClass] = None
+        loader: Union[str, JClass] = None,
+        program_name: str = None,
+        nested_project_location = True
 ) -> Tuple["GhidraProject", "Program"]:
     from ghidra.base.project import GhidraProject
     from java.lang import ClassLoader  # type:ignore @UnresolvedImport
     from ghidra.framework.model import ProjectLocator # type:ignore @UnresolvedImport
     if binary_path is not None:
         binary_path = Path(binary_path)
+    if program_name is None and binary_path is not None:
+        program_name = binary_path.name
     if project_location:
         project_location = Path(project_location)
     else:
         project_location = binary_path.parent
     if not project_name:
         project_name = f"{binary_path.name}_ghidra"
-    project_location /= project_name
+    if nested_project_location: 
+        project_location /= project_name
 
     if isinstance(loader, str):
         from java.lang import ClassNotFoundException # type:ignore @UnresolvedImport
@@ -117,9 +122,9 @@ def _setup_project(
     else:
         project_location.mkdir(exist_ok=True, parents=True)
         project = GhidraProject.createProject(project_location, project_name, False)      
-    if binary_path is not None:
-        if project.getRootFolder().getFile(binary_path.name):
-            program = project.openProgram("/", binary_path.name, False)
+    if program_name is not None:
+        if project.getRootFolder().getFile(program_name):
+            program = project.openProgram("/", program_name, False)
 
     # NOTE: GhidraProject.importProgram behaves differently when a loader is provided
     # loaderClass may not be null so we must use the correct method override
@@ -146,7 +151,7 @@ def _setup_project(
                 else:
                     message += f"The provided language ({language}) may be invalid."
                 raise ValueError(message)
-        project.saveAs(program, "/", program.getName(), True)
+        project.saveAs(program, "/", program_name, True)
 
     return project, program
 
@@ -198,10 +203,12 @@ def open_program(
         analyze=True,
         language: str = None,
         compiler: str = None,
-        loader: Union[str, JClass] = None
+        loader: Union[str, JClass] = None,
+        program_name: str = None,
+        nested_project_location = True
 ) -> ContextManager["FlatProgramAPI"]: # type: ignore
     """
-    Opens given binary path in Ghidra and returns FlatProgramAPI object.
+    Opens given binary path (or optional program name) in Ghidra and returns FlatProgramAPI object.
 
     :param binary_path: Path to binary file, may be None.
     :param project_location: Location of Ghidra project to open/create.
@@ -215,6 +222,13 @@ def open_program(
         (Defaults to the Language's default compiler)
     :param loader: The `ghidra.app.util.opinion.Loader` class to use when importing the program.
         This may be either a Java class or its path. (Defaults to None)
+    :param program_name: The name of the program to open in Ghidra.
+        (Defaults to None, which results in the name being derived from "binary_path")
+    :param nested_project_location: If True, assumes "project_location" contains an extra nested 
+        directory named "project_name", which contains the actual Ghidra project files/directories.
+        By default, PyGhidra creates Ghidra projects with this nested layout, but the standalone
+        Ghidra program does not.  Nested project locations are True by default to maintain backwards
+        compatibility with older versions of PyGhidra.
     :return: A Ghidra FlatProgramAPI object.
     :raises ValueError: If the provided language, compiler or loader is invalid.
     :raises TypeError: If the provided loader does not implement `ghidra.app.util.opinion.Loader`.
@@ -234,7 +248,9 @@ def open_program(
         project_name,
         language,
         compiler,
-        loader
+        loader,
+        program_name,
+        nested_project_location
     )
     GhidraScriptUtil.acquireBundleHostReference()
 
@@ -261,6 +277,8 @@ def _flat_api(
         language: str = None,
         compiler: str = None,
         loader: Union[str, JClass] = None,
+        program_name: str = None,
+        nested_project_location = True,
         *,
         install_dir: Path = None
 ):
@@ -301,7 +319,9 @@ def _flat_api(
             project_name,
             language,
             compiler,
-            loader
+            loader,
+            program_name,
+            nested_project_location
         )
 
     from ghidra.app.script import GhidraScriptUtil
@@ -333,6 +353,8 @@ def run_script(
     lang: str = None,
     compiler: str = None,
     loader: Union[str, JClass] = None,
+    program_name = None,
+    nested_project_location = True,
     *,
     install_dir: Path = None
 ):
@@ -357,10 +379,17 @@ def run_script(
     :param install_dir: The path to the Ghidra installation directory. This parameter is only
         used if Ghidra has not been started yet.
         (Defaults to the GHIDRA_INSTALL_DIR environment variable)
+    :param program_name: The name of the program to open in Ghidra.
+        (Defaults to None, which results in the name being derived from "binary_path")
+    :param nested_project_location: If True, assumes "project_location" contains an extra nested 
+        directory named "project_name", which contains the actual Ghidra project files/directories.
+        By default, PyGhidra creates Ghidra projects with this nested layout, but the standalone
+        Ghidra program does not.  Nested project locations are True by default to maintain backwards
+        compatibility with older versions of PyGhidra.
     :raises ValueError: If the provided language, compiler or loader is invalid.
     :raises TypeError: If the provided loader does not implement `ghidra.app.util.opinion.Loader`.
     """
     script_path = str(script_path)
-    args = binary_path, project_location, project_name, verbose, analyze, lang, compiler, loader
+    args = binary_path, project_location, project_name, verbose, analyze, lang, compiler, loader, program_name, nested_project_location
     with _flat_api(*args, install_dir=install_dir) as script:
         script.run(script_path, script_args)

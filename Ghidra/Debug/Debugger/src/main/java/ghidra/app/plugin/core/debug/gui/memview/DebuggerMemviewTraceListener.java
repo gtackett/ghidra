@@ -20,6 +20,8 @@ import java.util.*;
 import ghidra.async.AsyncDebouncer;
 import ghidra.async.AsyncTimer;
 import ghidra.debug.api.tracemgr.DebuggerCoordinates;
+import ghidra.framework.model.DomainObjectChangeRecord;
+import ghidra.framework.model.DomainObjectEvent;
 import ghidra.program.model.address.*;
 import ghidra.trace.database.module.TraceObjectSection;
 import ghidra.trace.model.*;
@@ -27,7 +29,10 @@ import ghidra.trace.model.breakpoint.*;
 import ghidra.trace.model.memory.*;
 import ghidra.trace.model.modules.*;
 import ghidra.trace.model.target.TraceObject;
+import ghidra.trace.model.target.TraceObjectValue;
+import ghidra.trace.model.target.path.KeyPath;
 import ghidra.trace.model.thread.*;
+import ghidra.trace.model.time.TraceTimeManager;
 import ghidra.trace.util.TraceEvents;
 import ghidra.util.Swing;
 
@@ -79,6 +84,11 @@ public class DebuggerMemviewTraceListener extends TraceDomainObjectListener {
 		listenFor(TraceEvents.BREAKPOINT_DELETED, this::breakpointChanged);
 
 		listenFor(TraceEvents.BYTES_CHANGED, this::bytesChanged);
+
+		listenFor(TraceEvents.VALUE_CREATED, this::valueCreated);
+		listenFor(TraceEvents.VALUE_DELETED, this::valueDeleted);
+
+		listenForUntyped(DomainObjectEvent.RESTORED, this::objectRestored);
 	}
 
 	public MemviewProvider getProvider() {
@@ -100,7 +110,7 @@ public class DebuggerMemviewTraceListener extends TraceDomainObjectListener {
 		AddressRange rng = rng(defaultSpace, threadId, threadId);
 		TraceObject obj = objThread.getObject();
 		obj.getCanonicalParents(Lifespan.ALL).forEach(p -> {
-			MemoryBox box = new MemoryBox("Thread " + thread.getName(p.getMinSnap()),
+			MemoryBox box = new MemoryBox(currentTrace, "Thread " + thread.getName(p.getMinSnap()),
 				MemviewBoxType.THREAD, rng, p.getLifespan());
 			updateList.add(box);
 		});
@@ -112,13 +122,13 @@ public class DebuggerMemviewTraceListener extends TraceDomainObjectListener {
 			!(region instanceof TraceObjectMemoryRegion objRegion)) {
 			return;
 		}
-	
+
 		TraceObject obj = objRegion.getObject();
 		obj.getOrderedValues(Lifespan.ALL, TraceObjectMemoryRegion.KEY_RANGE, true).forEach(v -> {
 			if (region.getName(v.getMinSnap()).equals("full memory")) {
 				return;
 			}
-			MemoryBox box = new MemoryBox("Region " + region.getName(v.getMinSnap()),
+			MemoryBox box = new MemoryBox(currentTrace, "Region " + region.getName(v.getMinSnap()),
 				MemviewBoxType.REGION, v.castValue(), v.getLifespan());
 			updateList.add(box);
 		});
@@ -132,7 +142,7 @@ public class DebuggerMemviewTraceListener extends TraceDomainObjectListener {
 
 		TraceObject obj = objModule.getObject();
 		obj.getOrderedValues(Lifespan.ALL, TraceObjectModule.KEY_RANGE, true).forEach(v -> {
-			MemoryBox box = new MemoryBox("Module " + module.getName(v.getMinSnap()),
+			MemoryBox box = new MemoryBox(currentTrace, "Module " + module.getName(v.getMinSnap()),
 				MemviewBoxType.MODULE, v.castValue(), v.getLifespan());
 			updateList.add(box);
 		});
@@ -146,7 +156,7 @@ public class DebuggerMemviewTraceListener extends TraceDomainObjectListener {
 
 		TraceObject obj = objSection.getObject();
 		obj.getOrderedValues(Lifespan.ALL, TraceObjectSection.KEY_RANGE, true).forEach(v -> {
-			MemoryBox box = new MemoryBox("Module " + section.getName(v.getMinSnap()),
+			MemoryBox box = new MemoryBox(currentTrace, "Module " + section.getName(v.getMinSnap()),
 				MemviewBoxType.IMAGE, v.castValue(), v.getLifespan());
 			updateList.add(box);
 		});
@@ -162,8 +172,9 @@ public class DebuggerMemviewTraceListener extends TraceDomainObjectListener {
 		TraceObject obj = objBpt.getObject();
 		obj.getOrderedValues(Lifespan.ALL, TraceObjectBreakpointLocation.KEY_RANGE, true)
 				.forEach(v -> {
-					MemoryBox box = new MemoryBox("Module " + bpt.getName(v.getMinSnap()),
-						MemviewBoxType.BREAKPOINT, v.castValue(), v.getLifespan());
+					MemoryBox box =
+						new MemoryBox(currentTrace, "Module " + bpt.getName(v.getMinSnap()),
+							MemviewBoxType.BREAKPOINT, v.castValue(), v.getLifespan());
 					updateList.add(box);
 				});
 		updateLabelDebouncer.contact(null);
@@ -174,9 +185,29 @@ public class DebuggerMemviewTraceListener extends TraceDomainObjectListener {
 			return;
 		}
 		Lifespan lifespan = range.getLifespan();
-		MemoryBox box = new MemoryBox("BytesChanged " + range.description(),
+		MemoryBox box = new MemoryBox(currentTrace, "BytesChanged " + range.description(),
 			MemviewBoxType.WRITE_MEMORY, range.getRange(), lifespan);
 		updateList.add(box);
+		updateLabelDebouncer.contact(null);
+	}
+
+	private void valueCreated(TraceObjectValue value) {
+		if (value.getCanonicalPath().equals(KeyPath.of(TraceTimeManager.KEY_TIME_RADIX))) {
+			provider.fireTableDataChanged();
+		}
+	}
+
+	private void valueDeleted(TraceObjectValue value) {
+		if (value.getCanonicalPath().equals(KeyPath.of(TraceTimeManager.KEY_TIME_RADIX))) {
+			provider.fireTableDataChanged();
+		}
+	}
+
+	private void objectRestored(DomainObjectChangeRecord domainObjectChangeRecord) {
+		if (!trackTrace) {
+			return;
+		}
+		processTrace(currentTrace);
 		updateLabelDebouncer.contact(null);
 	}
 
@@ -208,6 +239,7 @@ public class DebuggerMemviewTraceListener extends TraceDomainObjectListener {
 			removeListener();
 		}
 		current = coordinates;
+		currentTrace = current.getTrace();
 		if (doListeners) {
 			addListener();
 		}
@@ -248,7 +280,7 @@ public class DebuggerMemviewTraceListener extends TraceDomainObjectListener {
 
 	private void processTrace(Trace trace) {
 		updateList.clear();
-		provider.reset();
+		//provider.reset();
 		if (!provider.isVisible()) {
 			return;
 		}

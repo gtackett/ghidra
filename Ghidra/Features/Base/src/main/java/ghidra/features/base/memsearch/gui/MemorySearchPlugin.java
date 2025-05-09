@@ -46,7 +46,7 @@ import ghidra.util.exception.CancelledException;
 import ghidra.util.task.*;
 
 /**
- * Plugin for searching program memory. 
+ * Plugin for searching program memory.
  */
 //@formatter:off
 @PluginInfo(
@@ -149,6 +149,7 @@ public class MemorySearchPlugin extends Plugin implements MemorySearchService {
 		saveState.putBoolean(SHOW_OPTIONS_PANEL, showOptionsPanel);
 		saveState.putBoolean(SHOW_SCAN_PANEL, showOptionsPanel);
 	}
+
 //==================================================================================================
 // MemorySearchService methods
 //==================================================================================================
@@ -205,10 +206,9 @@ public class MemorySearchPlugin extends Plugin implements MemorySearchService {
 				Msg.showWarn(this, null, "Search Failed!", "No valid start address!");
 				return;
 			}
+
 			MemorySearcher searcher = new MemorySearcher(source, lastByteMatcher, addresses, 1);
-
 			MemoryMatch match = searcher.findOnce(start, forward, monitor);
-
 			Swing.runLater(() -> navigateToMatch(match));
 		}
 

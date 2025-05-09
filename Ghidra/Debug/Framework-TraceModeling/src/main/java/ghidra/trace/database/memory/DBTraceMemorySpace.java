@@ -336,6 +336,10 @@ public class DBTraceMemorySpace
 		}*/
 	}
 
+	public void checkStateMapIntegrity() {
+		stateMapSpace.checkIntegrity();
+	}
+
 	@Override
 	// TODO: Ensure a code unit is not having rug taken out from under it?
 	public void setState(long snap, Address start, Address end, TraceMemoryState state) {
@@ -585,6 +589,9 @@ public class DBTraceMemorySpace
 
 	protected void doPutFutureBytes(OffsetSnap loc, ByteBuffer buf, int dstOffset, int maxLen,
 			OutSnap lastSnap, Set<TraceAddressSnapRange> changed) throws IOException {
+		if (loc.snap == Lifespan.DOMAIN.lmax()) {
+			return;
+		}
 		// NOTE: Do not leave the buffer advanced from here
 		int pos = buf.position();
 		// exclusive?
@@ -616,7 +623,7 @@ public class DBTraceMemorySpace
 			}
 		}
 		if (!remaining.isEmpty()) {
-			lastSnap.snap = Long.MAX_VALUE;
+			lastSnap.snap = Lifespan.DOMAIN.lmax();
 			for (AddressRange rng : remaining) {
 				changed.add(
 					new ImmutableTraceAddressSnapRange(rng, Lifespan.nowOnMaybeScratch(loc.snap)));
@@ -754,7 +761,8 @@ public class DBTraceMemorySpace
 
 		spans: for (Lifespan span : viewport.getOrderedSpans(snap)) {
 			Iterator<AddressRange> arit =
-				getAddressesWithState(span, s -> s == TraceMemoryState.KNOWN).iterator(start, true);
+				getAddressesWithState(span, remains, s -> s == TraceMemoryState.KNOWN)
+						.iterator(start, true);
 			while (arit.hasNext()) {
 				AddressRange rng = arit.next();
 				if (rng.getMinAddress().compareTo(toRead.getMaxAddress()) > 0) {

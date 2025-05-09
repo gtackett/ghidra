@@ -1392,7 +1392,7 @@ public abstract class AbstractDockingTest extends AbstractGuiTest {
 	 *
 	 * @param toggleAction the action
 	 * @param context the context for the action
-	 * @param selected true if the action is be be selected; false for not selected
+	 * @param selected true if the action is to be selected; false for not selected
 	 */
 	public static void setToggleActionSelected(ToggleDockingActionIf toggleAction,
 			ActionContext context, boolean selected) {
@@ -1405,7 +1405,7 @@ public abstract class AbstractDockingTest extends AbstractGuiTest {
 	 *
 	 * @param toggleAction the action
 	 * @param context the context for the action
-	 * @param selected true if the action is be be selected; false for not selected
+	 * @param selected true if the action is to be selected; false for not selected
 	 * @param wait true to wait for the action to finish; false to invoke later
 	 */
 	public static void setToggleActionSelected(ToggleDockingActionIf toggleAction,
@@ -2144,6 +2144,11 @@ public abstract class AbstractDockingTest extends AbstractGuiTest {
 				TimeUnit.NANOSECONDS));
 		*/
 		doWaitForTree(gTree);
+
+		// some client tree operations will launch tasks that wait for the tree and then call a 
+		// Swing task to run at some point after that.  waitForSwing() is not good enough for these,
+		// since the tree may be using a timer that has not yet expired.
+		waitForExpiringSwingTimers();
 	}
 
 	private static void doWaitForTree(GTree gTree) {

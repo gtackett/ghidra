@@ -48,7 +48,7 @@ import ghidra.util.exception.CancelledException;
 import ghidra.util.exception.UsrException;
 import ghidra.util.task.TaskMonitor;
 
-class UnionEditorModel extends CompEditorModel {
+class UnionEditorModel extends CompEditorModel<Union> {
 
 	private static final long serialVersionUID = 1L;
 	private static final int LENGTH = 0;
@@ -465,7 +465,6 @@ class UnionEditorModel extends CompEditorModel {
 				selection.addRange(rowIndex, rowIndex + 1);
 				fixSelection();
 			}
-			componentEdited();
 			return dtc;
 		}
 		catch (IllegalArgumentException exc) {
@@ -541,53 +540,20 @@ class UnionEditorModel extends CompEditorModel {
 	}
 
 	@Override
-	void removeDtFromComponents(Composite comp) {
-		DataTypePath path = comp.getDataTypePath();
-		DataType newDt = viewDTM.getDataType(path);
-		if (newDt == null) {
-			return;
-		}
-		viewDTM.withTransaction("Remove use of " + path, () -> {
-			int num = getNumComponents();
-			for (int i = num - 1; i >= 0; i--) {
-				DataTypeComponent dtc = getComponent(i);
-				DataType dt = dtc.getDataType();
-				if (dt instanceof Composite) {
-					Composite dtcComp = (Composite) dt;
-					if (dtcComp.isPartOf(newDt)) {
-						deleteComponent(i);
-						String msg =
-							"Components containing " + comp.getDisplayName() + " were removed.";
-						setStatus(msg, true);
-					}
-				}
-			}
-		});
-	}
-
-	/**
-	 * ?????
-	 *
-	 * @param rowIndex the index of the row
-	 */
-	@Override
 	protected boolean isAtEnd(int rowIndex) {
+		// Not applicable to union
 		return false;
 	}
 
-	/**
-	 * Cause the component at the specified index to consume undefined bytes
-	 * that follow it.
-	 * Note: this method adjusts the selection.
-	 * @return the number of Undefined bytes consumed.
-	 */
 	@Override
 	protected int consumeByComponent(int rowIndex) {
+		// Not applicable to union
 		return 0;
 	}
 
 	@Override
 	public boolean isShowingUndefinedBytes() {
+		// Not applicable to union
 		return false;
 	}
 
