@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<processor_spec>
+  <!-- 
+    S3C2410 Processor Specification
+    Based on ARM920T core with ARMv4T architecture
+    This pspec defines the Samsung S3C2410-specific register addresses
+  -->
+  
+  <programcounter register="pc"/>
+  
+  <!-- Register context definition for S3C2410-specific registers -->
+  <context_data>
+    <context_set name="S3C2410_Registers">
+      <!-- MMU Registers -->
+      <set name="coprocessor15" val="0"/>
+    </context_set>
+  </context_data>
+  
+  <!-- S3C2410 Memory Controller Registers -->
+  <context_data>
+    <tracked_set name="MEMCTL_Registers" space="ram">
+      <set name="BWSCON" val="0x48000000"/>    <!-- Bus Width and Wait Control -->
+      <set name="BANKCON0" val="0x48000004"/>  <!-- Bank 0 Control -->
+      <set name="BANKCON1" val="0x48000008"/>  <!-- Bank 1 Control -->
+      <set name="BANKCON2" val="0x4800000C"/>  <!-- Bank 2 Control -->
+      <set name="BANKCON3" val="0x48000010"/>  <!-- Bank 3 Control -->
+      <set name="BANKCON4" val="0x48000014"/>  <!-- Bank 4 Control -->
+      <set name="BANKCON5" val="0x48000018"/>  <!-- Bank 5 Control -->
+      <set name="BANKCON6" val="0x4800001C"/>  <!-- Bank 6/SDRAM Control -->
+      <set name="BANKCON7" val="0x48000020"/>  <!-- Bank 7/SDRAM Control -->
+      <set name="REFRESH" val="0x48000024"/>   <!-- SDRAM Refresh Control -->
+      <set name="BANKSIZE" val="0x48000028"/>  <!-- SDRAM Bank Size -->
+      <set name="MRSRB6" val="0x4800002C"/>    <!-- Mode Register Set for SDRAM Bank 6 -->
+      <set name="MRSRB7" val="0x48000030"/>    <!-- Mode Register Set for SDRAM Bank 7 -->
+    </tracked_set>
+  </context_data>
+  
+  <!-- Support for ARM920T-specific features -->
+  <volatile>
+    <!-- All peripheral memory spaces are volatile -->
+    <range space="ram" first="0x48000000" last="0x5FFFFFFF"/>
+  </volatile>
+  
+  <!-- S3C2410 Vectors -->
+  <context_data>
+    <tracked_set name="S3C2410_Vectors" space="ram">
+      <set name="VECTOR_RESET" val="0x00000000"/>
+      <set name="VECTOR_UNDEF" val="0x00000004"/>
+      <set name="VECTOR_SWI" val="0x00000008"/>
+      <set name="VECTOR_PREFETCH_ABORT" val="0x0000000C"/>
+      <set name="VECTOR_DATA_ABORT" val="0x00000010"/>
+      <set name="VECTOR_RESERVED" val="0x00000014"/>
+      <set name="VECTOR_IRQ" val="0x00000018"/>
+      <set name="VECTOR_FIQ" val="0x0000001C"/>
+    </tracked_set>
+  </context_data>
+</processor_spec>
