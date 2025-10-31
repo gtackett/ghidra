@@ -91,3 +91,6 @@ core.*
 # python files
 *.egg-info
 __pycache__
+#*#
+ghidra_12.1_DEV/
+build/
